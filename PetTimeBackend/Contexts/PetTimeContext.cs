@@ -22,7 +22,8 @@ namespace PetTimeBackend.Contexts
         public DbSet <User> Users { get; set; }
         public DbSet <Pet> Pets { get; set; }
         public DbSet <Breed> Breeds { get; set; }
-
+        public DbSet<Article> Articles { get; set; }
+        public DbSet <Event> Events { get; set; }
 
     }
 }
