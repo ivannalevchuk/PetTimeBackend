@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PetTimeBackend.Contexts;
@@ -13,9 +14,12 @@ builder.Configuration.AddJsonFile("appsettings.json");
 
 builder.Services.AddDbContext<PetTimeContext>(
     item => item.UseSqlServer(
-        "Server=.;" +
+        "Server=petrimedb.database.windows.net;" +
         "Database=PetTimeDB;" +
-        "Trusted_Connection=True;"
+        "Trusted_Connection=False;" +
+        "Encrypt=True;" +
+        "User Id=PetTimeDB;" +
+        "Password=sql!Admin"
         ));
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -34,7 +38,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
+builder.Services.AddHttpClient();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

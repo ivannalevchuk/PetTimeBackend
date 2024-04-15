@@ -33,7 +33,6 @@ namespace PetTimeBackend.Controllers
                 return BadRequest(ModelState);
             }
 
-            // Check if the email is already registered
             if (await _context.Users.AnyAsync(u => u.Email == user.Email))
             {
                 ModelState.AddModelError("Email", "Email is already registered.");
@@ -85,13 +84,7 @@ namespace PetTimeBackend.Controllers
             {
                 throw new ArgumentNullException(nameof(_configuration), "Configuration object is null");
             }
-            //string jwtKey = _configuration["Jwt:Key"];
-
-            //if (string.IsNullOrEmpty(jwtKey))
-            //{
-            //    throw new InvalidOperationException("JWT key is missing or empty in the configuration");
-            //}
-
+ 
             var claims = new[]
             {
             new Claim(ClaimTypes.Name, user.Email),
