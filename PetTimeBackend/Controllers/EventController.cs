@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using PetTimeBackend.Contexts;
 using PetTimeBackend.Entities;
+using PetTimeBackend.IServices;
+using PetTimeBackend.Services;
 using PetTimeBackend.ViewModels;
 
 namespace PetTimeBackend.Controllers
@@ -10,40 +12,79 @@ namespace PetTimeBackend.Controllers
     [ApiController]
     public class EventController : ControllerBase
     {
-        private readonly PetTimeContext _context;
-        public EventController(PetTimeContext context)
+        private readonly IEventService _eventService;
+
+        public EventController(IEventService eventService)
         {
-            _context = context;
+            _eventService = eventService;
         }
+
         [HttpPost]
         public IActionResult CreateEvent([FromBody] EventViewModel model)
         {
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
+
             try
             {
-                var pet = _context.Pets.FirstOrDefault(p => p.Id == model.PetId) ;
-                 if(pet == null)
-                {
-                    return NotFound("Pet not found");
-                }
-                var newEvent = new Event
-                {
-                    PetId = model.PetId,
-                    EventDate = model.EventDate,
-                    EventType = model.EventType,
-                    Description = model.Description
-                };
-                _context.Events.Add(newEvent);
-                _context.SaveChanges();
-                return Ok(new { Message = "Event added successfully", EventId = newEvent.Id });
+                _eventService.CreateEvent(model);
+                return Ok(new { Message = "Event added successfully" });
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
+        [HttpGet("pet/{petId}")]
+        public IActionResult GetEventsByPetId(long petId)
+        {
+            try
+            {
+                var petEvents = _eventService.GetEventsByPetId(petId);
+
+                if (petEvents == null || !petEvents.Any())
+                {
+                    return NotFound("No events found for the specified pet");
+                }
+
+                return Ok(petEvents);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet ("events/{date}")]
+        public IActionResult GetEventsByDate(string date)
+        {
+            try
+            {
+                var dateEvents = _eventService.GetEventsByDate(date);
+
+                if (dateEvents == null || !dateEvents.Any())
+                {
+                    return Ok(new List<Event>());
+                }
+
+                return Ok(dateEvents);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpDelete("{id}")]
+        public async  Task<IActionResult> DeletePet(long id)
+        {
+            await _eventService.RemoveEvent(id);
+            return NoContent();
+        }
+
+
     }
 }

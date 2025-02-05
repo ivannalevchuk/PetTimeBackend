@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PetTimeBackend.Contexts;
 
@@ -11,9 +12,10 @@ using PetTimeBackend.Contexts;
 namespace PetTimeBackend.Migrations
 {
     [DbContext(typeof(PetTimeContext))]
-    partial class PetTimeContextModelSnapshot : ModelSnapshot
+    [Migration("20240520145528_new_tables1")]
+    partial class new_tables1
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -214,10 +216,6 @@ namespace PetTimeBackend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("ImageUrl")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<float>("Latitude")
                         .HasColumnType("real");
 
@@ -239,12 +237,16 @@ namespace PetTimeBackend.Migrations
                     b.Property<int>("Sex")
                         .HasColumnType("int");
 
-                    b.Property<long>("UserId")
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("UserId1")
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId1");
 
                     b.ToTable("Reports");
                 });
@@ -257,14 +259,7 @@ namespace PetTimeBackend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"), 1L, 1);
 
-                    b.Property<long>("CityId")
-                        .HasColumnType("bigint");
-
                     b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ImageUrl")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -276,9 +271,11 @@ namespace PetTimeBackend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("Id");
+                    b.Property<string>("Surname")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
-                    b.HasIndex("CityId");
+                    b.HasKey("Id");
 
                     b.ToTable("Users");
                 });
@@ -364,22 +361,11 @@ namespace PetTimeBackend.Migrations
                 {
                     b.HasOne("PetTimeBackend.Entities.User", "User")
                         .WithMany()
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("UserId1")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("PetTimeBackend.Entities.User", b =>
-                {
-                    b.HasOne("PetTimeBackend.Entities.City", "City")
-                        .WithMany()
-                        .HasForeignKey("CityId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("City");
                 });
 
             modelBuilder.Entity("PetTimeBackend.Entities.Vaccination", b =>

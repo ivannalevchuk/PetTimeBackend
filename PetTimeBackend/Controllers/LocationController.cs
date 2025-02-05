@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using PetTimeBackend.Contexts;
 using PetTimeBackend.Entities;
 using System.Net.Http;
@@ -18,12 +19,29 @@ namespace PetTimeBackend.Controllers
             _httpClient = httpClient;
         }
 
+        [HttpGet("countries")] 
+        public async Task <ActionResult<IEnumerable<Country>>> GetCountries() {
+            return await _dbContext.Countries.ToListAsync();
+        }
+
+        [HttpGet("cities/{countryId}")]
+        public async Task<ActionResult<IEnumerable<City>>> GetCitiesByCountry(int countryId)
+        {
+            var cities = await _dbContext.Cities
+                .Where(city => city.CountryId == countryId)
+                .ToListAsync();
+
+            return Ok(cities);
+        }
+
         [HttpGet]
         public IActionResult GetLocations()
         {
             try
             {
-                var locations = _dbContext.Places.ToList();
+                var locations = _dbContext.Places
+                .Where(location => location.IsPetFriendly)
+                    .ToList();
 
                 if (locations == null || locations.Count == 0)
                 {
@@ -46,6 +64,28 @@ namespace PetTimeBackend.Controllers
             }
 
         }
+
+        [HttpGet("CheckPlace/{name}")]
+        public IActionResult CheckPlace(string name)
+        {
+            try
+            {
+                var place = _dbContext.Places
+                    .FirstOrDefault(p => p.Name == name);
+
+                if (place == null)
+                {
+                    return NotFound("Place not found in the database");
+                }
+
+                return Ok(new { PetFriendly = place.IsPetFriendly });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
         [HttpGet("{id}")]
         public IActionResult GetLocationById(int id)
         {
@@ -87,8 +127,9 @@ namespace PetTimeBackend.Controllers
 
                 double latitude = jsonResponse.results[0].geometry.location.lat;
                 double longitude = jsonResponse.results[0].geometry.location.lng;
+                string locationId = jsonResponse.results[0].place_id;
 
-                return Ok(new { Latitude = latitude, Longitude = longitude });
+                return Ok(new { Latitude = latitude, Longitude = longitude, LocationId = locationId });
             }
             catch (Exception ex)
             {
@@ -113,7 +154,6 @@ namespace PetTimeBackend.Controllers
             }
             catch (Exception ex)
             {
-                // Handle any errors
                 Console.WriteLine($"Error: {ex.Message}");
                 return null;
             }
@@ -122,8 +162,7 @@ namespace PetTimeBackend.Controllers
         public async Task<IActionResult> AddPlace([FromBody] NewPlaceRequest request)
         {
             try
-            {
-                // Use the Google Maps Geocoding API to get latitude and longitude
+            {       
                 string apiKey = "AIzaSyB0nUlWRWmDS_4EMfIkUjXFcEHMvWbXtTk";
                 string url = $"https://maps.googleapis.com/maps/api/geocode/json?address={request.Address}&key={apiKey}";
 
@@ -135,18 +174,19 @@ namespace PetTimeBackend.Controllers
 
                 float latitude = jsonResponse.results[0].geometry.location.lat;
                 float longitude = jsonResponse.results[0].geometry.location.lng;
+                string locationId = jsonResponse.results[0].place_id;
+             
 
-                // Create a new Place object
                 var newPlace = new Place
                 {
                     Latitude = latitude,
                     Longitude = longitude,
+                    GoogleMapsId = locationId,
                     Name = request.Name,
                     Address = request.Address,
-                    // You can include other properties of Place here
+                    IsPetFriendly= request.IsPetFriendly,
                 };
 
-                // Save the new place to the database
                 _dbContext.Places.Add(newPlace);
                 _dbContext.SaveChanges();
 
@@ -161,6 +201,7 @@ namespace PetTimeBackend.Controllers
         {
             public string Name { get; set; }
             public string Address { get; set; }
+            public bool IsPetFriendly { get; set; }
         }
     }
 

@@ -9,12 +9,14 @@ namespace PetTimeBackend.Entities
         [Required]
         public string Name { get; set; }
         [Required]
-        public string Surname { get; set; }
-        [Required]
         [EmailAddress]
         public string Email { get; set; }
         [Required]
         public string Password { get; set; }
+        public string? ImageUrl { get; set; }
+        public long CityId { get; set; }
         public List<Pet> Pets { get; set; }
+
+        public City City { get; set; }
     }
 }

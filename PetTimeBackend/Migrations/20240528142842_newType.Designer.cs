@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PetTimeBackend.Contexts;
 
@@ -11,9 +12,10 @@ using PetTimeBackend.Contexts;
 namespace PetTimeBackend.Migrations
 {
     [DbContext(typeof(PetTimeContext))]
-    partial class PetTimeContextModelSnapshot : ModelSnapshot
+    [Migration("20240528142842_newType")]
+    partial class newType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -240,6 +242,9 @@ namespace PetTimeBackend.Migrations
                         .HasColumnType("int");
 
                     b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("UserId1")
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");

@@ -1,9 +1,10 @@
 ﻿namespace PetTimeBackend.Entities
 {
-    public class Breed
+    public class City
     {
         public long Id { get; set; }
         public string Name { get; set; }
-        public List<Pet> Pets { get; set; }
+        public long CountryId { get; set; }
+        public Country Country { get; set; }
     }
 }

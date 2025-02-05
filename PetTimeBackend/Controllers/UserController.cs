@@ -1,10 +1,15 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Azure.Storage.Blobs;
+using Google.Cloud.Firestore.V1;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PetTimeBackend.Contexts;
 using PetTimeBackend.Entities;
+using PetTimeBackend.Services;
+using PetTimeBackend.ViewModels;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -16,54 +21,179 @@ namespace PetTimeBackend.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly PetTimeContext _context;
+        private readonly PetTimeContext _dbContext;
         private readonly IConfiguration _configuration;
-        public UserController(PetTimeContext context, IConfiguration configuration) 
-        { 
-            _context = context;
+        private readonly BlobServiceClient _blobServiceClient;
+        private readonly FirestoreService _firestoreService;
+        public UserController(PetTimeContext context, IConfiguration configuration, BlobServiceClient blobServiceClient, FirestoreService firestoreService) 
+        {
+            _dbContext = context;
             _configuration = configuration;
+            _blobServiceClient = blobServiceClient;
+            _firestoreService = firestoreService;
+        }
+
+        [HttpGet]
+        public async Task<IEnumerable<User>> GetAllUsersAsync()
+        {
+            return await _dbContext.Users.ToListAsync();
+        }
+
+        [HttpGet("{id}")]
+
+        public async Task <IActionResult> GetUserById (long id)
+        {
+            try
+            {
+                var user = _dbContext.Users.Find(id);
+                if (user == null)
+                {
+                    return NotFound("User not found");
+                }
+
+                return Ok(user);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
         [HttpPost("signup")]
-        public async Task<IActionResult> Register([FromBody] User user)
+        public async Task<IActionResult> Register([FromBody] UserViewModel model)
         {
-            // Validate the model
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
+          
 
-            if (await _context.Users.AnyAsync(u => u.Email == user.Email))
+            if (await _dbContext.Users.AnyAsync(u => u.Email == model.Email))
             {
                 ModelState.AddModelError("Email", "Email is already registered.");
                 return BadRequest(ModelState);
             }
 
-            user.Password = HashPassword(user.Password);
+            model.Password = HashPassword(model.Password);
+            var user = new User
+            {
+                Name= model.Name,
+                Email = model.Email,
+                Password = model.Password,
+                CityId = model.CityId,
+            };
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync();
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            var response = new RegistrationResponse
+            {
+                UserId = user.Id,
+                Message = "Registration successful"
+            };
 
-            return Ok("Registration successful");
+            return Ok(response);
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email && u.Password == HashPassword(request.Password));
+            var user = await _dbContext.Users
+                .FirstOrDefaultAsync(u => u.Email == request.Email && u.Password == HashPassword(request.Password) );
 
             if (user == null)
             {
                 return Unauthorized("Invalid credentials");
             }
 
-            // Generate JWT token
             var token = GenerateJwtToken(user);
 
             return Ok(new { Token = token });
         }
 
+        [HttpPost("{userId}/upload-image")]
+        public async Task<IActionResult> UploadImage(long userId, IFormFile image)
+        {
+            try
+            {
+                var user = _dbContext.Users.Find(userId);
+                if (user == null)
+                {
+                    return NotFound("User not found");
+                }
+
+                if (image == null || image.Length == 0)
+                {
+                    return BadRequest("No image uploaded");
+                }
+
+                string imageName = Guid.NewGuid().ToString() + Path.GetExtension(image.FileName);
+                var containerClient = _blobServiceClient.GetBlobContainerClient("images");
+                var blobClient = containerClient.GetBlobClient(imageName);
+                using (var stream = image.OpenReadStream())
+                {
+                     blobClient.Upload(stream, true);
+                }
+
+                user.ImageUrl = blobClient.Uri.ToString();
+                _dbContext.SaveChanges();
+
+                return Ok("Image uploaded successfully");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+        [HttpPost("{userId}/location")]
+        public async Task<IActionResult> UpdateUserLocation(string userId, [FromBody] LocationUpdateModel model)
+        {
+            try
+            {
+                await _firestoreService.SaveUserLocationAsync(userId, model.Latitude, model.Longitude);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet("{userId}/location")]
+        public async Task<IActionResult> GetUserLocation(long userId)
+        {
+            try
+            {
+                var userLocation = await _firestoreService.GetUserLocationAsync(userId);
+                if (userLocation == null)
+                {
+                    return NotFound("User location not found");
+                }
+
+                return Ok(userLocation);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+        [HttpGet("{userId}/locations")]
+        public async Task<IActionResult> GetUsersLocation(long userId)
+        {
+            try
+            {
+                var userLocation = await _firestoreService.GetAllUserLocationsAsync(userId);
+                if (userLocation == null)
+                {
+                    return NotFound("User location not found");
+                }
+
+                return Ok(userLocation);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
         private string HashPassword(string password)
         {
             using (SHA256 sha256 = SHA256.Create())
@@ -114,4 +244,16 @@ namespace PetTimeBackend.Controllers
         [Required]
         public string Password { get; set; }
     }
+}
+
+public class RegistrationResponse
+{
+    public long UserId { get; set; }
+    public string Message { get; set; }
+}
+
+public class LocationUpdateModel
+{
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
 }
